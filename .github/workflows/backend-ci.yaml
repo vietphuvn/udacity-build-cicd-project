@@ -1,0 +1,93 @@
+# Workflow name
+name: Backend Continuous Integration
+
+# Triggers for the workflow
+on:
+  # Manual trigger using the workflow_dispatch event
+  workflow_dispatch: null
+  
+  # Automatic trigger on push events to the main branch
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - "backend/**"
+      
+  # Automatic trigger on pull request events targeting the main branch
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      
+  # Scheduled trigger at 5:00 AM UTC, Monday through Friday
+  # schedule:
+  #   - cron: '0 5 * * 1-5'
+
+# Jobs defined in the workflow
+jobs:
+  lint-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: "pipenv"
+      - name: Run pipenv
+        uses: tiagovrtr/actions-pipenv@v1
+        with:
+          pipenv-version: "v2023.10.24"
+      - name: Pipenv install
+        run: cd backend && pipenv install -d
+      - name: Run lint
+        run: cd backend && pipenv run lint
+
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: "pipenv"
+      - name: Run pipenv
+        uses: tiagovrtr/actions-pipenv@v1
+        with:
+          pipenv-version: "v2023.10.24"
+      - name: Pipenv install
+        run: cd backend && pipenv install
+      - name: Run test
+        run: cd backend && pipenv run test
+  
+  build-job:
+    needs: [lint-job, test-job]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: "pipenv"
+      - name: Run pipenv
+        uses: tiagovrtr/actions-pipenv@v1
+        with:
+          pipenv-version: "v2023.10.24"
+      - name: Pipenv install
+        run: cd backend && pipenv install
+      - name: Run test
+        run: cd backend && pipenv run test
+
+      - name: Build, tag, and push docker image to Amazon ECR
+        env:
+          REPOSITORY: backend
+          IMAGE_TAG: latest
+        run: |
+          cd backend
+          docker build -t $REPOSITORY:$IMAGE_TAG .
